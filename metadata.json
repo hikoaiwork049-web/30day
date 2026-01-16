@@ -1,0 +1,5 @@
+{
+  "name": "30-Day Challenge Generator",
+  "description": "A high-quality tool to create personalized 30 or 31-day challenge grids by uploading your own images. Customize titles, layouts, and export your challenge as a printable image.",
+  "requestFramePermissions": []
+}
