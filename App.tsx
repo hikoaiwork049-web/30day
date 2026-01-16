@@ -42,20 +42,42 @@ const App: React.FC = () => {
     const files = Array.from(e.target.files || []) as File[];
     if (files.length === 0) return;
 
-    // 尋找目前未被佔用的日期槽位
-    const occupiedDays = images.map(img => img.day);
-    const availableDays = [];
-    for (let i = 1; i <= config.totalDays; i++) {
-      if (!occupiedDays.includes(i)) availableDays.push(i);
-    }
+    setImages(prev => {
+      const currentImages = [...prev];
+      
+      files.forEach(file => {
+        // 從檔名提取數字 (例如 "01.jpg" -> 1)
+        const nameMatch = file.name.match(/(\d+)/);
+        let targetDay = nameMatch ? parseInt(nameMatch[0], 10) : null;
 
-    const newImages = files.slice(0, availableDays.length).map((file, index) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      url: URL.createObjectURL(file),
-      day: availableDays[index]
-    }));
+        // 檢查該日期是否有效且未被佔用
+        const isOccupied = (day: number) => currentImages.some(img => img.day === day);
+        
+        if (targetDay && targetDay >= 1 && targetDay <= config.totalDays && !isOccupied(targetDay)) {
+          // 檔名匹配成功且位置有空
+          currentImages.push({
+            id: Math.random().toString(36).substr(2, 9),
+            url: URL.createObjectURL(file),
+            day: targetDay
+          });
+        } else {
+          // 檔名無數字或位置已滿，尋找第一個空位
+          for (let d = 1; d <= config.totalDays; d++) {
+            if (!isOccupied(d)) {
+              currentImages.push({
+                id: Math.random().toString(36).substr(2, 9),
+                url: URL.createObjectURL(file),
+                day: d
+              });
+              break;
+            }
+          }
+        }
+      });
+      
+      return currentImages;
+    });
 
-    setImages(prev => [...prev, ...newImages]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -73,7 +95,7 @@ const App: React.FC = () => {
         newImages[sourceIdx].day = newImages[targetIdx].day;
         newImages[targetIdx].day = tempDay;
       } else if (sourceIdx !== -1) {
-        // 移動到空位
+        // 移動到空日期槽位
         newImages[sourceIdx].day = targetDay;
       }
       return [...newImages];
@@ -81,7 +103,11 @@ const App: React.FC = () => {
   };
 
   const removeImage = (id: string) => {
-    setImages(prev => prev.filter(img => img.id !== id));
+    setImages(prev => {
+      const imgToRemove = prev.find(img => img.id === id);
+      if (imgToRemove) URL.revokeObjectURL(imgToRemove.url);
+      return prev.filter(img => img.id !== id);
+    });
   };
 
   const toggleSkippedDay = (day: number) => {
@@ -94,14 +120,11 @@ const App: React.FC = () => {
   };
 
   const clearAll = () => {
-    // 移除 confirm 確保在所有環境都能運作，或改用 state
     images.forEach(img => URL.revokeObjectURL(img.url));
     setImages([]);
     setConfig(prev => ({ ...prev, skippedDays: [] }));
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
-      fileInputRef.current.type = 'text'; // 強制重置 file input 的技巧
-      fileInputRef.current.type = 'file';
     }
   };
 
@@ -122,7 +145,7 @@ const App: React.FC = () => {
       link.click();
     } catch (err) {
       console.error('Export failed', err);
-      alert('導出失敗，請重試。');
+      alert('圖片生成失敗，請重試。');
     } finally {
       setIsExporting(false);
     }
@@ -146,7 +169,7 @@ const App: React.FC = () => {
           <div className="mb-6 flex items-end justify-between">
             <div>
               <h2 className="text-2xl font-bold text-slate-800">挑戰畫布</h2>
-              <p className="text-slate-500 text-sm">拖拽圖片可調整日期順序，點擊空格可標記休息日</p>
+              <p className="text-slate-500 text-sm">支援檔名 (01-31) 自動對齊日期，拖拽可交換順序</p>
             </div>
             <div className="text-xs font-bold text-slate-400 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
               預覽比例: {(previewScale * 100).toFixed(0)}%

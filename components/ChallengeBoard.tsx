@@ -1,7 +1,7 @@
 
 import React, { forwardRef, useState } from 'react';
 import { ChallengeImage, ChallengeConfig } from '../types';
-import { Trash2, X, Move } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 
 interface BoardProps {
   config: ChallengeConfig;
@@ -38,10 +38,9 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
 
   const rowCount = Math.ceil(gridItems.length / cols);
 
-  // Drag handlers
   const handleDragStart = (e: React.DragEvent, day: number) => {
     setDraggedDay(day);
-    e.dataTransfer.setData('text/plain', day.toString());
+    e.dataTransfer.setData('day', day.toString());
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -52,8 +51,10 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
 
   const handleDrop = (e: React.DragEvent, targetDay: number) => {
     e.preventDefault();
-    const sourceDay = parseInt(e.dataTransfer.getData('text/plain'));
-    onReorder(sourceDay, targetDay);
+    const sourceDay = parseInt(e.dataTransfer.getData('day'));
+    if (!isNaN(sourceDay)) {
+      onReorder(sourceDay, targetDay);
+    }
     setDraggedDay(null);
     setDragOverDay(null);
   };
@@ -105,7 +106,7 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
             onDrop={(e) => item.day && handleDrop(e, item.day)}
             className={`relative rounded-sm overflow-hidden group/item border transition-all flex items-center justify-center ${
               item.type === 'offset' 
-                ? 'bg-transparent border-none' 
+                ? 'bg-transparent border-none opacity-0 pointer-events-none' 
                 : dragOverDay === item.day && draggedDay !== item.day
                   ? 'border-indigo-500 border-dashed border-4 bg-indigo-50/30 scale-[1.02] z-10'
                   : 'border-slate-100'
@@ -113,7 +114,6 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
           >
             {item.type === 'challenge' && (
               <>
-                {/* 日期數字 */}
                 <div className="absolute top-4 left-4 z-10 pointer-events-none">
                    <span className="text-slate-400 text-2xl font-semibold opacity-80">{item.day}</span>
                 </div>
@@ -137,7 +137,7 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
                       className="w-full h-full object-cover object-center pointer-events-none"
                     />
                     
-                    {/* 懸浮工具列 */}
+                    {/* 工具按鈕 */}
                     <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center gap-4" data-html2canvas-ignore="true">
                        <button 
                         onClick={(e) => { e.stopPropagation(); onRemoveImage(item.image!.id); }}
