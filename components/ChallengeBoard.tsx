@@ -1,16 +1,20 @@
 
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
 import { ChallengeImage, ChallengeConfig } from '../types';
-import { Trash2, X } from 'lucide-react';
+import { Trash2, X, Move } from 'lucide-react';
 
 interface BoardProps {
   config: ChallengeConfig;
   images: ChallengeImage[];
   onRemoveImage: (id: string) => void;
   onToggleSkip: (day: number) => void;
+  onReorder: (sourceDay: number, targetDay: number) => void;
 }
 
-const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images, onRemoveImage, onToggleSkip }, ref) => {
+const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images, onRemoveImage, onToggleSkip, onReorder }, ref) => {
+  const [draggedDay, setDraggedDay] = useState<number | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
+
   const totalDays = config.totalDays;
   const offset = config.startOffset || 0;
   const cols = config.columns || 5;
@@ -34,15 +38,35 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
 
   const rowCount = Math.ceil(gridItems.length / cols);
 
+  // Drag handlers
+  const handleDragStart = (e: React.DragEvent, day: number) => {
+    setDraggedDay(day);
+    e.dataTransfer.setData('text/plain', day.toString());
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, day: number) => {
+    e.preventDefault();
+    setDragOverDay(day);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetDay: number) => {
+    e.preventDefault();
+    const sourceDay = parseInt(e.dataTransfer.getData('text/plain'));
+    onReorder(sourceDay, targetDay);
+    setDraggedDay(null);
+    setDragOverDay(null);
+  };
+
   return (
     <div 
       ref={ref}
       id="challenge-board-canvas"
-      className="bg-white p-16 grid overflow-hidden"
+      className="bg-white p-16 grid overflow-hidden select-none"
       style={{ 
         width: '2160px', 
-        height: '2700px', // 嚴格固定畫布高度，IG 4:5 比例
-        gridTemplateRows: 'auto 1fr auto', // 頭、身、尾。身（Grid）會自動壓縮以確保下半部不被截走
+        height: '2700px',
+        gridTemplateRows: 'auto 1fr auto',
         boxSizing: 'border-box',
         color: '#333'
       }}
@@ -64,7 +88,7 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
         </h1>
       </div>
 
-      {/* Grid Area: 使用 1fr 配合 min-h-0 確保在畫布高度內縮放 */}
+      {/* Grid Area */}
       <div 
         className="grid gap-6 px-2 min-h-0" 
         style={{ 
@@ -76,13 +100,16 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
         {gridItems.map((item, index) => (
           <div 
             key={index}
-            className={`relative rounded-sm overflow-hidden group/item border border-slate-100 flex items-center justify-center transition-all ${
+            onDragOver={(e) => item.day && handleDragOver(e, item.day)}
+            onDragLeave={() => setDragOverDay(null)}
+            onDrop={(e) => item.day && handleDrop(e, item.day)}
+            className={`relative rounded-sm overflow-hidden group/item border transition-all flex items-center justify-center ${
               item.type === 'offset' 
                 ? 'bg-transparent border-none' 
-                : item.isSkipped 
-                  ? 'bg-slate-50' 
-                  : 'bg-[#fcfcfc]'
-            }`}
+                : dragOverDay === item.day && draggedDay !== item.day
+                  ? 'border-indigo-500 border-dashed border-4 bg-indigo-50/30 scale-[1.02] z-10'
+                  : 'border-slate-100'
+            } ${item.isSkipped ? 'bg-slate-50' : 'bg-[#fcfcfc]'}`}
           >
             {item.type === 'challenge' && (
               <>
@@ -91,35 +118,41 @@ const ChallengeBoard = forwardRef<HTMLDivElement, BoardProps>(({ config, images,
                    <span className="text-slate-400 text-2xl font-semibold opacity-80">{item.day}</span>
                 </div>
 
-                {/* 互動按鈕 */}
-                <button 
-                  onClick={() => onToggleSkip(item.day!)}
-                  className="absolute inset-0 z-20 opacity-0 cursor-pointer"
-                  data-html2canvas-ignore="true"
-                />
-
                 {item.isSkipped ? (
-                  <div className="w-full h-full flex items-center justify-center bg-slate-50">
+                  <div 
+                    className="w-full h-full flex items-center justify-center bg-slate-50 cursor-pointer"
+                    onClick={() => onToggleSkip(item.day!)}
+                  >
                     <X className="w-1/3 h-1/3 text-slate-200" strokeWidth={1} />
                   </div>
                 ) : item.image ? (
-                  <>
+                  <div 
+                    className={`w-full h-full relative cursor-grab active:cursor-grabbing ${draggedDay === item.day ? 'opacity-30' : ''}`}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, item.day!)}
+                  >
                     <img 
                       src={item.image.url} 
                       alt={`Day ${item.day}`}
-                      className="w-full h-full object-cover object-center" // 改回 object-cover，實現中心裁切填滿
+                      className="w-full h-full object-cover object-center pointer-events-none"
                     />
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onRemoveImage(item.image!.id); }}
-                      className="absolute top-4 right-4 p-4 bg-red-500/80 text-white rounded-lg opacity-0 group-hover/item:opacity-100 transition-opacity z-30"
-                      data-html2canvas-ignore="true"
-                    >
-                      <Trash2 className="w-8 h-8" />
-                    </button>
-                  </>
+                    
+                    {/* 懸浮工具列 */}
+                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center gap-4" data-html2canvas-ignore="true">
+                       <button 
+                        onClick={(e) => { e.stopPropagation(); onRemoveImage(item.image!.id); }}
+                        className="p-4 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                      >
+                        <Trash2 className="w-8 h-8" />
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center opacity-[0.015] select-none pointer-events-none">
-                     <span className="text-9xl font-bold">{item.day}</span>
+                  <div 
+                    className="w-full h-full flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors"
+                    onClick={() => onToggleSkip(item.day!)}
+                  >
+                     <span className="text-9xl font-bold opacity-[0.015]">{item.day}</span>
                   </div>
                 )}
               </>

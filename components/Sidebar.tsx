@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Type, LayoutGrid, Calendar, Trash2, Upload, Download, Clock, Info, FontCursor } from 'lucide-react';
+import { Type, LayoutGrid, Calendar, Trash2, Upload, Download, Clock, Info } from 'lucide-react';
 import { ChallengeConfig } from '../types';
 
 interface SidebarProps {
@@ -27,9 +27,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const hasContent = imagesCount > 0 || config.skippedDays.length > 0;
 
   const fontOptions = [
-    { id: 'serif', label: '襯線體', class: 'font-serif-title' },
-    { id: 'script', label: '手寫體', class: 'font-script' },
-    { id: 'sans', label: '簡約黑體', class: 'font-sans font-black' },
+    { id: 'serif', label: '襯線體' },
+    { id: 'script', label: '手寫體' },
+    { id: 'sans', label: '黑體' },
   ];
 
   return (
@@ -49,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-4">
           <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
             <Clock className="w-4 h-4 text-indigo-500" />
-            日期與版面設定
+            日期與版面
           </label>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
@@ -69,27 +69,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onChange={(e) => setConfig({ ...config, month: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
               />
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">起始空格</span>
-              <input 
-                type="number"
-                min="0"
-                max="6"
-                value={config.startOffset}
-                onChange={(e) => setConfig({ ...config, startOffset: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">網格欄數</span>
-              <select 
-                value={config.columns}
-                onChange={(e) => setConfig({ ...config, columns: parseInt(e.target.value) || 5 })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              >
-                {[4, 5, 6, 7].map(c => <option key={c} value={c}>{c} 欄</option>)}
-              </select>
             </div>
           </div>
         </div>
@@ -121,34 +100,31 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-4">
           <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
             <Type className="w-4 h-4 text-indigo-500" />
-            標題設定
+            標題與字型
           </label>
           <div className="space-y-3">
             <input 
               type="text"
               value={config.title}
-              placeholder="輸入挑戰名稱..."
+              placeholder="輸入標題..."
               onChange={(e) => setConfig({ ...config, title: e.target.value })}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
             />
             
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">字型風格</span>
-              <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
-                {fontOptions.map((font) => (
-                  <button
-                    key={font.id}
-                    onClick={() => setConfig({ ...config, titleFont: font.id as any })}
-                    className={`py-1.5 rounded text-[10px] font-bold transition-all ${
-                      config.titleFont === font.id 
-                        ? 'bg-white shadow-sm text-indigo-600' 
-                        : 'text-slate-400 hover:text-slate-500'
-                    }`}
-                  >
-                    {font.label}
-                  </button>
-                ))}
-              </div>
+            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
+              {fontOptions.map((font) => (
+                <button
+                  key={font.id}
+                  onClick={() => setConfig({ ...config, titleFont: font.id as any })}
+                  className={`py-1.5 rounded text-[10px] font-bold transition-all ${
+                    config.titleFont === font.id 
+                      ? 'bg-white shadow-sm text-indigo-600' 
+                      : 'text-slate-400 hover:text-slate-500'
+                  }`}
+                >
+                  {font.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -183,7 +159,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           
           {hasContent && (
             <button 
-              onClick={onClear}
+              onClick={(e) => { e.preventDefault(); onClear(); }}
               className="w-full py-2 flex items-center justify-center gap-2 text-sm text-red-500 font-bold hover:bg-red-50 rounded-lg transition-colors border border-red-100"
             >
               <Trash2 className="w-4 h-4" />
@@ -199,7 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           disabled={!hasContent || isExporting}
           className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-all transform active:scale-95"
         >
-          {isExporting ? '處理中...' : '下載 IG 4:5 圖片'}
+          {isExporting ? '處理中...' : '下載圖片'}
         </button>
       </div>
     </aside>

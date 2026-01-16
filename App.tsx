@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewScale, setPreviewScale] = useState(0.25);
 
-  // 動態計算預覽比例，確保畫布始終完整顯示在螢幕內
+  // 動態計算預覽比例
   useEffect(() => {
     const updateScale = () => {
       const container = document.getElementById('preview-container');
@@ -42,23 +42,46 @@ const App: React.FC = () => {
     const files = Array.from(e.target.files || []) as File[];
     if (files.length === 0) return;
 
-    const currentMaxDay = images.length > 0 ? Math.max(...images.map(img => img.day)) : 0;
-    
-    const newImages = files.map((file, index) => ({
+    // 尋找目前未被佔用的日期槽位
+    const occupiedDays = images.map(img => img.day);
+    const availableDays = [];
+    for (let i = 1; i <= config.totalDays; i++) {
+      if (!occupiedDays.includes(i)) availableDays.push(i);
+    }
+
+    const newImages = files.slice(0, availableDays.length).map((file, index) => ({
       id: Math.random().toString(36).substr(2, 9),
       url: URL.createObjectURL(file),
-      day: currentMaxDay + index + 1
-    })).filter(img => img.day <= config.totalDays);
+      day: availableDays[index]
+    }));
 
-    setImages(prev => [...prev, ...newImages].slice(0, config.totalDays));
+    setImages(prev => [...prev, ...newImages]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const removeImage = (id: string) => {
+  const handleReorder = (draggedDay: number, targetDay: number) => {
+    if (draggedDay === targetDay) return;
+
     setImages(prev => {
-      const filtered = prev.filter(img => img.id !== id);
-      return filtered.map((img, idx) => ({ ...img, day: idx + 1 }));
+      const newImages = [...prev];
+      const sourceIdx = newImages.findIndex(img => img.day === draggedDay);
+      const targetIdx = newImages.findIndex(img => img.day === targetDay);
+
+      if (sourceIdx !== -1 && targetIdx !== -1) {
+        // 交換位置
+        const tempDay = newImages[sourceIdx].day;
+        newImages[sourceIdx].day = newImages[targetIdx].day;
+        newImages[targetIdx].day = tempDay;
+      } else if (sourceIdx !== -1) {
+        // 移動到空位
+        newImages[sourceIdx].day = targetDay;
+      }
+      return [...newImages];
     });
+  };
+
+  const removeImage = (id: string) => {
+    setImages(prev => prev.filter(img => img.id !== id));
   };
 
   const toggleSkippedDay = (day: number) => {
@@ -71,11 +94,14 @@ const App: React.FC = () => {
   };
 
   const clearAll = () => {
-    if (confirm('確定要清除所有圖片與標記嗎？')) {
-      images.forEach(img => URL.revokeObjectURL(img.url));
-      setImages([]);
-      setConfig(prev => ({ ...prev, skippedDays: [] }));
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    // 移除 confirm 確保在所有環境都能運作，或改用 state
+    images.forEach(img => URL.revokeObjectURL(img.url));
+    setImages([]);
+    setConfig(prev => ({ ...prev, skippedDays: [] }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.type = 'text'; // 強制重置 file input 的技巧
+      fileInputRef.current.type = 'file';
     }
   };
 
@@ -88,19 +114,15 @@ const App: React.FC = () => {
         height: 2700,
         pixelRatio: 1,
         backgroundColor: '#ffffff',
-        style: {
-          transform: 'none',
-        },
-        filter: (node) => node.tagName !== 'SCRIPT',
       });
       
       const link = document.createElement('a');
-      link.download = `${config.title.toLowerCase().replace(/\s+/g, '-')}.png`;
+      link.download = `${config.title || 'challenge'}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
       console.error('Export failed', err);
-      alert('導出失敗，請確保圖片已完整加載。');
+      alert('導出失敗，請重試。');
     } finally {
       setIsExporting(false);
     }
@@ -123,11 +145,11 @@ const App: React.FC = () => {
         <div className="w-full h-full flex flex-col">
           <div className="mb-6 flex items-end justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">全圖預覽</h2>
-              <p className="text-slate-500 text-sm">整張畫布將完整導出為 2160x2700 (IG 4:5)</p>
+              <h2 className="text-2xl font-bold text-slate-800">挑戰畫布</h2>
+              <p className="text-slate-500 text-sm">拖拽圖片可調整日期順序，點擊空格可標記休息日</p>
             </div>
             <div className="text-xs font-bold text-slate-400 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
-              預覽縮放: {(previewScale * 100).toFixed(0)}%
+              預覽比例: {(previewScale * 100).toFixed(0)}%
             </div>
           </div>
 
@@ -143,7 +165,7 @@ const App: React.FC = () => {
                 height: '2700px',
                 flexShrink: 0
               }}
-              className="shadow-[0_40px_100px_rgba(0,0,0,0.2)] bg-white"
+              className="shadow-2xl bg-white"
             >
                <ChallengeBoard 
                 ref={boardRef}
@@ -151,6 +173,7 @@ const App: React.FC = () => {
                 images={images}
                 onRemoveImage={removeImage}
                 onToggleSkip={toggleSkippedDay}
+                onReorder={handleReorder}
               />
             </div>
           </div>
